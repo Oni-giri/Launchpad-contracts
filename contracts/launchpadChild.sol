@@ -73,12 +73,11 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     // Sale inputs
     // TODO: use an array
     // We use an array to solve stackTooDeep error
-    uint256[9] memory _saleInputs,
+    uint256[8] memory _saleInputs,
     // uint _tokenTotalAmount,
     // uint _listingTokensPerOneEth,
     // uint _liquidityShareBP,
     // uint _hardcap,
-    // uint _feeBP, -- use master interface
     // uint _startTime,
     // uint _endTime,
     // Miscellaneous
@@ -98,11 +97,13 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     listingTokensPerOneEth = _saleInputs[1];
     liquidityShareBP = _saleInputs[2];
     hardcap = _saleInputs[3];
-    feeBP = _saleInputs[4];
-    startTime = _saleInputs[5];
-    endTime = _saleInputs[6];
-    maxBuyPerUser = _saleInputs[7];
-    minBuyPerUser = _saleInputs[8];
+    startTime = _saleInputs[4];
+    endTime = _saleInputs[5];
+    maxBuyPerUser = _saleInputs[6];
+    minBuyPerUser = _saleInputs[7];
+
+    master = ILaunchpadMaster(msg.sender);
+    feeBP = master.feesBP();
 
     saleTokensPerOneEth =
       ((tokenTotalAmount * (10_000 - liquidityShareBP)) / 10_000) /
@@ -118,10 +119,6 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
         ((hardcap * (10_000 - feeBP)) / 10_000),
       "not enough ETH for liquidity, increase listing price or decrease liquidity share"
     );
-    require(
-      token.balanceOf(address(this)) == tokenTotalAmount,
-      "incorrect amount of tokens sent to the address"
-    );
 
     liquidityLockDuration = _liquidityLockDuration;
     // userVestDuration = userVestDuration;
@@ -133,7 +130,6 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     wlStartTime = _wlStartTime;
     require(wlStartTime < startTime);
 
-    master = ILaunchpadMaster(msg.sender);
     saleId = master.addressToSaleId(address(this));
     signer = master.saleToSigner(saleId);
     recipient = payable(master.feesWallet());
