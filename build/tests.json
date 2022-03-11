@@ -1,0 +1,10 @@
+{
+  "contracts": {
+    "LaunchpadChild": "561aa3ed12d5982d4afbdc546675dbe3e3f4d4da",
+    "LaunchpadMaster": "dd6c38a62ffd8ce229b6716f72b5bdba00ee16bc",
+    "OpenZeppelin/openzeppelin-contracts@4.3.2/ERC20": "66da243acd69225608a740097de3f10858990e3d",
+    "mockERC20": "ca247079dbe5cac0aa13ce7e85e10c85530a8a34"
+  },
+  "tests": {},
+  "tx": {}
+}
