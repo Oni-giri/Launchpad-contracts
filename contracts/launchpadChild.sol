@@ -41,7 +41,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
   address public deadAddress = 0x000000000000000000000000000000000000dEaD;
 
   address private signer; // Who is the signer if the whitelist is enabled?
-  ILaunchpadMaster private master; // Who is the master?
+  ILaunchpadMaster public master; // Who is the master?
   // TODO: Remove comment
   // IMasterLaunchpad public master;                 // Who is the creator of the contract?
   IUniswapV2Router02 public router; // UniswapV2-like router used to add liquidity
@@ -55,7 +55,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
 
   address payable public recipient; // Who gets the fees?
   address payable public saleInitiator; // Who has started the sale?
-  uint256 public totalBuy; // How many tokens were bought so far?
+  uint256 public totalBuyEth; // How many tokens were bought so far?
 
   bool public saleFinalized; // Is sale ready for the launch?
   bool public saleEnded; // Is the sale ended and tokens are ready to be claimed?
@@ -101,6 +101,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     endTime = _saleInputs[5];
     maxBuyPerUser = _saleInputs[6];
     minBuyPerUser = _saleInputs[7];
+    require(minBuyPerUser < hardcap, "min buy per user is higher than hardcap");
 
     master = ILaunchpadMaster(msg.sender);
     feeBP = master.feesBP();
@@ -131,7 +132,11 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     require(wlStartTime < startTime);
 
     saleId = master.addressToSaleId(address(this));
-    signer = master.saleToSigner(saleId);
+
+    if(whitelistEnabled) {
+      signer = master.saleToSigner(saleId);
+    }
+
     recipient = payable(master.feesWallet());
     saleInitiator = payable(_saleInitiator);
 
@@ -146,6 +151,11 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
   modifier onlyInitiator() {
     require(saleInitiator == msg.sender, "caller is not the initiator");
     _;
+  }
+
+  
+  function totalBuyTokens() public view returns(uint) {
+    return(totalBuyEth * saleTokensPerOneEth);
   }
 
   // Allows the initiator to abort the sale, if claiming hasn't started
@@ -169,22 +179,22 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
   }
 
   function buyTokensPublic() external payable nonReentrant whenNotPaused {
-    require(msg.value <= maxBuyPerUser, "you're trying to buy too many tokens");
-    require(msg.value >= minBuyPerUser, "you're not sending enough");
-    require(
-      msg.value * saleTokensPerOneEth + totalBuy <= tokenAmountForSale,
-      "there aren't enough tokens left. Try a lower amount"
-    );
-    require(
-      address(this).balance <= hardcap,
-      "hardcap is reached. Try a lower amount"
-    );
     require(block.timestamp > startTime, "sale hasn't started yet");
     require(block.timestamp < endTime, "sale has ended");
     require(saleFinalized, "sale hasn't been finalized yet");
+    require(msg.value + userBuyAmount[msg.sender] <= maxBuyPerUser, "you're trying to buy too many tokens");
+    require(msg.value >= minBuyPerUser, "you're not sending enough");
+    require(
+      msg.value * saleTokensPerOneEth + totalBuyTokens() <= tokenAmountForSale,
+      "there aren't enough tokens left. Try a lower amount"
+    );
+    require(
+      totalBuyEth + msg.value <= hardcap,
+      "hardcap is reached. Try a lower amount"
+    );
 
     userBuyAmount[msg.sender] = msg.value;
-    totalBuy = totalBuy + (msg.value * saleTokensPerOneEth);
+    totalBuyEth = totalBuyEth + msg.value;
   }
 
   function buyTokensWhitelist(bytes memory signature)
@@ -194,14 +204,14 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     whenNotPaused
   {
     require(verify(signature, msg.sender, saleId, block.chainid));
-    require(msg.value <= maxBuyPerUser, "you're trying to buy too many tokens");
+    require(msg.value + userBuyAmount[msg.sender] <= maxBuyPerUser, "you're trying to buy too many tokens");
     require(msg.value >= minBuyPerUser, "you're not sending enough");
     require(
-      msg.value * saleTokensPerOneEth + totalBuy <= tokenAmountForSale,
+      msg.value * saleTokensPerOneEth + totalBuyTokens() <= tokenAmountForSale,
       "there aren't enough tokens left. Try a lower amount"
     );
     require(
-      address(this).balance <= hardcap,
+      totalBuyEth + msg.value <= hardcap,
       "hardcap is reached. Try a lower amount"
     );
     require(block.timestamp > wlStartTime, "sale hasn't started yet");
@@ -209,7 +219,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     require(saleFinalized, "sale hasn't been finalized yet");
 
     userBuyAmount[msg.sender] = msg.value;
-    totalBuy = totalBuy + (msg.value * saleTokensPerOneEth);
+    totalBuyEth = totalBuyEth + msg.value;
   }
 
   function verify(
@@ -280,7 +290,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     uint256 amountToClaim = userBuyAmount[msg.sender];
     userBuyAmount[msg.sender] = 0;
 
-    (bool sent, bytes memory data) = msg.sender.call{value: amountToClaim}("");
+    msg.sender.call{value: amountToClaim}("");
   }
 
   // Use this function to close the sale and allow users to claim their tokens
@@ -290,17 +300,17 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     require(saleFinalized, "sale wasn't finalized");
     require(block.timestamp >= endTime);
     require(
-      totalBuy > (tokenTotalAmount * softcap) / hardcap,
+      totalBuyTokens() > (tokenTotalAmount * softcap) / hardcap,
       "not enough tokens were sold"
     );
 
     saleEnded = true;
 
     // We add liquidity on the fly
-    uint256 ethAmountForLiquidity = totalBuy / listingTokensPerOneEth;
+    uint256 ethAmountForLiquidity = totalBuyTokens() / listingTokensPerOneEth;
     // TODO: Need to test this for overflow risk
     uint256 actualTokenAmountForLiquidity = (tokenAmountForLiquidity *
-      totalBuy) / tokenTotalAmount;
+      totalBuyTokens()) / tokenTotalAmount;
 
     token.approve(address(router), actualTokenAmountForLiquidity);
     router.addLiquidityETH{value: ethAmountForLiquidity}(
@@ -311,5 +321,9 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
       address(this),
       block.timestamp + 100
     );
+
+    recipient.call{value: totalBuyEth*feeBP/10000}("");
+    payable(msg.sender).call{value: address(this).balance}("");
   }
+
 }

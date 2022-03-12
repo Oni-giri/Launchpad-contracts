@@ -1,3 +1,4 @@
+// "SPDX-License-Identifier: MIT"
 pragma solidity =0.8.7;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -24,7 +25,6 @@ contract LaunchpadMaster is Ownable, ReentrancyGuard, Pausable {
   uint256 public deployFee; // Amount to pay to deploy a sale
   address public signer; // who signs for presales
   address payable public feesWallet; // Who gets the fees
-  bool public inDeploy; // util var
 
   constructor(
     uint256 _feesBP,
@@ -60,13 +60,7 @@ contract LaunchpadMaster is Ownable, ReentrancyGuard, Pausable {
     uint256 _wlStartTime,
     uint256 _liquidityLockDuration,
     address _router
-  )
-    external
-    payable
-    whenNotPaused
-    nonReentrant
-    returns (address saleAddress)
-  {
+  ) external payable whenNotPaused nonReentrant returns (address saleAddress) {
     // Basic checks
     require(msg.value >= deployFee, "not enough eth sent");
     require(
@@ -75,9 +69,8 @@ contract LaunchpadMaster is Ownable, ReentrancyGuard, Pausable {
     );
 
     // New index
-    currentSaleId = currentSaleId + 1;
     saleToSigner[currentSaleId] = signer;
-    
+
     // Deploy the contract
     LaunchpadChild deployedSale = new LaunchpadChild(
       _token,
@@ -88,19 +81,36 @@ contract LaunchpadMaster is Ownable, ReentrancyGuard, Pausable {
       _wlStartTime,
       _liquidityLockDuration,
       _router,
-      address(this)
+      msg.sender
     );
 
+    currentSaleId = currentSaleId + 1;
     saleAddress = address(deployedSale);
 
     // Update the registry
     saleIdToAddress[currentSaleId] = saleAddress;
     addressToSaleId[saleAddress] = currentSaleId;
 
-    return(saleAddress);
+    return (saleAddress);
   }
 
-  function claimFees() external onlyOwner nonReentrant {
-    payable(owner()).call{value: address(this).balance}("");
+  function claimFees() external nonReentrant {
+    require(msg.sender == feesWallet, "not authorized");
+    payable(feesWallet).call{value: address(this).balance}("");
   }
+
+  function setSigner(address _signer) external onlyOwner {
+    signer = _signer;
+  }
+
+  function setFeesBP(uint _feesBP) external onlyOwner {
+    require(_feesBP < 10_000, "too high");
+    feesBP = _feesBP;
+  }
+
+  function setDeployFee(uint _deployFee) external onlyOwner {
+    deployFee = _deployFee;
+  }
+
+  receive() external payable {}
 }
