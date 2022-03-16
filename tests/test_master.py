@@ -1,7 +1,9 @@
 import pytest
 import brownie
-from brownie import accounts, LaunchpadMaster, LaunchpadChild, interface, MockERC20, MockERC20WithFees
+from brownie import accounts, LaunchpadMaster, LaunchpadChild, interface, MockERC20
+from brownie import MockERC20WithFees
 import time
+from utils.test_utils import mine_at
 
 
 @pytest.fixture(scope="function")
@@ -67,11 +69,11 @@ def child(deployer, master, signer, simpleERC20, now):
         "presale",
         "presale.png",
         [1_000_000e18,  # _tokenTotalAmount
-         5_000,  # _listingTokensPerOneEth
+         10_000_000,  # _listingTokensPerOneEth
          3000,  # _liquidityShare
          1e17,  # _hardcap
          now+5,  # _startTime
-         now+20,  # _endTime
+         now+15,  # _endTime
          6e16,  # _maxBuyPerUser
          1e14  # _minBuyPerUser
          ],
@@ -91,17 +93,42 @@ def childFeeToken(deployer, master, signer, feeERC20, now):
         feeERC20,
         "presale",
         "presale.png",
-        [1_000_000e18,  # _tokenTotalAmount
-         5_000,  # _listingTokensPerOneEth
+        [900_000e18,  # _tokenTotalAmount
+         10_000_000,  # _listingTokensPerOneEth
          3000,  # _liquidityShare
          1e17,  # _hardcap
          now+5,  # _startTime
-         now+20,  # _endTime
+         now+15,  # _endTime
          6e16,  # _maxBuyPerUser
          1e14  # _minBuyPerUser
          ],
         False,  # _whitelistEnabled
         0,  # _wlStartTime
+        0,  # _liquidityLockDuration
+        "0x10ED43C718714eb63d5aA57B78B54704E256024E",  # _router
+        {"from": deployer, "value": 1e17}
+    )
+
+    return LaunchpadChild.at(childTx.return_value)
+
+
+@pytest.fixture(scope="function")
+def childWhitelist(deployer, master, signer, simpleERC20, now):
+    childTx = LaunchpadMaster.createPresale(
+        feeERC20,
+        "presale",
+        "presale.png",
+        [1_000_000e18,  # _tokenTotalAmount
+         10_000_000,  # _listingTokensPerOneEth
+         3000,  # _liquidityShare
+         1e17,  # _hardcap
+         now+5,  # _startTime
+         now+15,  # _endTime
+         6e16,  # _maxBuyPerUser
+         1e14  # _minBuyPerUser
+         ],
+        True,  # _whitelistEnabled
+        now,  # _wlStartTime
         0,  # _liquidityLockDuration
         "0x10ED43C718714eb63d5aA57B78B54704E256024E",  # _router
         {"from": deployer, "value": 1e17}
@@ -168,11 +195,11 @@ def test_childConstructor(master, child, simpleERC20, deployer, now, feesWallet)
     assert child.description() == "presale"
     assert child.imageUrl() == "presale.png"
     assert child.tokenTotalAmount() == 1_000_000e18
-    assert child.listingTokensPerOneEth() == 5_000
+    assert child.listingTokensPerOneEth() == 10_000_000
     assert child.liquidityShareBP() == 3000
     assert child.hardcap() == 1e17
     assert child.startTime() == now + 5
-    assert child.endTime() == now + 20
+    assert child.endTime() == now + 15
     assert child.whitelistEnabled() == False
     assert child.wlStartTime() == 0
     assert child.router() == "0x10ED43C718714eb63d5aA57B78B54704E256024E"
@@ -184,6 +211,9 @@ def test_childConstructor(master, child, simpleERC20, deployer, now, feesWallet)
     assert child.softcap() == child.hardcap()/2
     assert child.maxBuyPerUser() == 6e16
     assert child.minBuyPerUser() == 1e14
+
+    assert master.saleIdToAddress(0) == child.address
+    assert master.addressToSaleId(child) == 0
 
 
 def test_finalizeSale(master, child, simpleERC20, deployer):
@@ -197,7 +227,8 @@ def test_finalizeSale(master, child, simpleERC20, deployer):
     assert child.saleFinalized() == True
 
 
-def test_buyTokensPublic(master, child, simpleERC20, deployer, alice, bob):
+def test_buyTokensPublic(master, child, simpleERC20, deployer, alice, bob, now):
+    mine_at(now)
     # Prep the sale
     simpleERC20.transfer(child, 1_000_000e18, {"from": deployer})
 
@@ -210,7 +241,7 @@ def test_buyTokensPublic(master, child, simpleERC20, deployer, alice, bob):
     with brownie.reverts("sale hasn't started yet"):
         child.buyTokensPublic({"from": alice, "value": 1e15})
 
-    time.sleep(6)
+    mine_at(now+6)
     with brownie.reverts("you're trying to buy too many tokens"):
         child.buyTokensPublic({"from": alice, "value": 1e18})
     with brownie.reverts("you're not sending enough"):
@@ -222,7 +253,120 @@ def test_buyTokensPublic(master, child, simpleERC20, deployer, alice, bob):
 
     with brownie.reverts("you're trying to buy too many tokens"):
         child.buyTokensPublic({"from": alice, "value": 6e16})
-    
-    with brownie.reverts("there aren't enough tokens left. Try a lower amount"):
-        child.buyTokensPublic({"from": bob, "value": 6e16}) 
 
+    with brownie.reverts("there aren't enough tokens left. Try a lower amount"):
+        child.buyTokensPublic({"from": bob, "value": 6e16})
+
+    child.buyTokensPublic({"from": bob, "value": 4e16})
+
+
+def test_abortSale(master, child, simpleERC20, deployer, alice, bob, now):
+    # Prep the sale
+    simpleERC20.transfer(child, 1_000_000e18, {"from": deployer})
+    child.finalizeSale({"from": deployer})
+
+    mine_at(now+6)
+    child.buyTokensPublic({"from": bob, "value": 1e16})
+    child.abortSale({"from": deployer})
+    with brownie.reverts("sale was aborted"):
+        child.buyTokensPublic({"from": bob, "value": 1e16})
+    with brownie.reverts("sale was aborted, please use claimStaleEth() function"):
+        child.claimTokens({"from": bob})
+
+
+def test_endSaleAllowClaim(master, child, simpleERC20, deployer, feesWallet, alice, bob, now):
+    # Prep the sale
+    simpleERC20.transfer(child, 1_000_000e18, {"from": deployer})
+
+    with brownie.reverts("sale wasn't finalized"):
+        child.endSaleAllowClaim({"from": deployer})
+
+    child.finalizeSale({"from": deployer})
+    mine_at(now+6)
+    child.buyTokensPublic({"from": bob, "value": 1e16})
+    with brownie.reverts("not enough tokens were sold"):
+        child.endSaleAllowClaim({"from": deployer})
+
+    child.buyTokensPublic({"from": bob, "value": 5e16})
+    saleBal = child.balance()
+    deployBal = deployer.balance()
+    feesBal = feesWallet.balance()
+
+    child.endSaleAllowClaim({"from": deployer})
+    assert child.saleEnded() == True
+    assert 0 == child.balance()
+    assert deployBal < deployer.balance()
+    assert feesBal < feesWallet.balance()
+    router = interface.IUniswapV2Router02(child.router())
+    factory = interface.IUniswapV2Factory(router.factory())
+    pair = interface.IUniswapV2Pair(factory.getPair(simpleERC20, router.WETH()))
+    assert pair.totalSupply() > 1;
+
+
+def test_claimStaleEth1(master, child, simpleERC20, deployer, alice, bob, now):
+    # Prep the sale
+    simpleERC20.transfer(child, 1_000_000e18, {"from": deployer})
+    child.finalizeSale({"from": deployer})
+    mine_at(now+6)
+    child.buyTokensPublic({"from": bob, "value": 1e16})
+
+    child.abortSale({"from": deployer})
+
+    before = bob.balance()
+    child.claimStaleEth({"from": bob})
+    assert bob.balance() > before
+    assert child.userBuyAmount(bob) == 0
+
+    with brownie.reverts("user hasn't any tokens to claim"):
+        child.claimStaleEth({"from": bob})
+
+
+def test_claimStaleEth2(master, child, simpleERC20, deployer, alice, bob, now):
+    # Prep the sale
+    simpleERC20.transfer(child, 1_000_000e18, {"from": deployer})
+    child.finalizeSale({"from": deployer})
+    mine_at(now+6)
+    child.buyTokensPublic({"from": bob, "value": 6e16})
+
+    mine_at(now+86500)
+    before = bob.balance()
+    child.claimStaleEth({"from": bob})
+    assert bob.balance() > before
+    assert child.userBuyAmount(bob) == 0
+    with brownie.reverts("user hasn't any tokens to claim"):
+        child.claimStaleEth({"from": bob})
+
+
+def test_claimStaleEth3(master, child, simpleERC20, deployer, alice, bob, now):
+    # Prep the sale
+    simpleERC20.transfer(child, 1_000_000e18, {"from": deployer})
+    child.finalizeSale({"from": deployer})
+    mine_at(now+6)
+    child.buyTokensPublic({"from": bob, "value": 1e16})
+
+    mine_at(now+30)
+    before = bob.balance()
+    child.claimStaleEth({"from": bob})
+    assert bob.balance() > before
+    assert child.userBuyAmount(bob) == 0
+    with brownie.reverts("user hasn't any tokens to claim"):
+        child.claimStaleEth({"from": bob})
+
+
+def test_claimTokensClassic(master, child, simpleERC20, deployer, alice, bob, now):
+    # Prep the sale
+    simpleERC20.transfer(child, 1_000_000e18, {"from": deployer})
+    child.finalizeSale({"from": deployer})
+    mine_at(now+6)
+    child.buyTokensPublic({"from": bob, "value": 6e16})
+
+    with brownie.reverts("initiator hasn't ended the sale yet"):
+        child.claimTokens({"from": bob})
+
+    child.endSaleAllowClaim({"from": deployer})
+
+    mine_at(now+20)
+    before = simpleERC20.balanceOf(bob)
+    child.claimTokens({"from": bob})
+    assert simpleERC20.balanceOf(
+        bob) - before == 6e16 * child.saleTokensPerOneEth()

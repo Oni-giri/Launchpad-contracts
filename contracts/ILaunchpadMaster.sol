@@ -7,5 +7,6 @@ interface ILaunchpadMaster {
     function addressToSaleId(address) external view returns(uint256);
     function saleIdToAddress(uint256) external view returns(address);
     function feesBP() external view returns(uint256);
+    function currentSaleId() external view returns(uint256);
     
 }   

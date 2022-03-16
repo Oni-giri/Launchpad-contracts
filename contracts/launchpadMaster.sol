@@ -84,12 +84,12 @@ contract LaunchpadMaster is Ownable, ReentrancyGuard, Pausable {
       msg.sender
     );
 
-    currentSaleId = currentSaleId + 1;
-    saleAddress = address(deployedSale);
-
     // Update the registry
+    saleAddress = address(deployedSale);
     saleIdToAddress[currentSaleId] = saleAddress;
     addressToSaleId[saleAddress] = currentSaleId;
+
+    currentSaleId = currentSaleId + 1;
 
     return (saleAddress);
   }
