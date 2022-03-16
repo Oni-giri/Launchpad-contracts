@@ -5,8 +5,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/cryptography/ECDSA.sol"
-// import "@openzeppelin/contracts/finance/VestingWallet.sol";
 import "./IUniswapV2Router.sol";
 import "./IUniswapV2Factory.sol";
 import "./ILaunchpadMaster.sol";
@@ -252,32 +250,32 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     return(signer == ecrecover(messageHash, v, r, s));
   }
 
-  // function splitSignature(bytes memory sig)
-  //   public
-  //   pure
-  //   returns (
-  //     uint8,
-  //     bytes32,
-  //     bytes32
-  //   )
-  // {
-  //   require(sig.length == 65);
+  function splitSignature(bytes memory sig)
+    public
+    pure
+    returns (
+      uint8,
+      bytes32,
+      bytes32
+    )
+  {
+    require(sig.length == 65);
 
-  //   bytes32 r;
-  //   bytes32 s;
-  //   uint8 v;
+    bytes32 r;
+    bytes32 s;
+    uint8 v;
 
-  //   assembly {
-  //     // first 32 bytes, after the length prefix
-  //     r := mload(add(sig, 32))
-  //     // second 32 bytes
-  //     s := mload(add(sig, 64))
-  //     // final byte (first byte of the next 32 bytes)
-  //     v := byte(0, mload(add(sig, 96)))
-  //   }
+    assembly {
+      // first 32 bytes, after the length prefix
+      r := mload(add(sig, 32))
+      // second 32 bytes
+      s := mload(add(sig, 64))
+      // final byte (first byte of the next 32 bytes)
+      v := byte(0, mload(add(sig, 96)))
+    }
 
-  //   return (v, r, s);
-  // }
+    return (v, r, s);
+  }
 
   function claimTokens() external nonReentrant {
     require(

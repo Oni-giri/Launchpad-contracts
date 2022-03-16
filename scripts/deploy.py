@@ -29,7 +29,7 @@ def main():
         0,  # _liquidityLockDuration
         "0x10ED43C718714eb63d5aA57B78B54704E256024E",  # _router
                 {"from": deployer, "value": 1e17})
-    child = LaunchpadChild.at(LaunchpadChild)
+    child = LaunchpadChild.at(childAddress.return_value)
     # // recipient.call{value: (totalBuyEth * feeBP) / 10000}("");
     # // payable(msg.sender).call{value: address(this).balance}("");
 
