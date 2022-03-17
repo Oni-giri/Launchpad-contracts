@@ -61,6 +61,19 @@
 				"inputs": [
 					{
 						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "Debug",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
 						"internalType": "address",
 						"name": "account",
 						"type": "address"
@@ -425,6 +438,19 @@
 			},
 			{
 				"inputs": [],
+				"name": "signer",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
 				"name": "softcap",
 				"outputs": [
 					{
@@ -724,7 +750,7 @@
 	},
 	"settings": {
 		"compilationTarget": {
-			"freelance/launchpad/contracts/launchpadChild.sol": "LaunchpadChild"
+			"launchpad/contracts/launchpadChild.sol": "LaunchpadChild"
 		},
 		"evmVersion": "london",
 		"libraries": {},
@@ -732,8 +758,8 @@
 			"bytecodeHash": "ipfs"
 		},
 		"optimizer": {
-			"enabled": false,
-			"runs": 200
+			"enabled": true,
+			"runs": 400
 		},
 		"remappings": []
 	},
@@ -818,14 +844,14 @@
 				"dweb:/ipfs/QmP7C3CHdY9urF4dEMb9wmsp1wMxHF6nhA2yQE5SKiPAdy"
 			]
 		},
-		"freelance/launchpad/contracts/ILaunchpadMaster.sol": {
-			"keccak256": "0x5df357247e7858b38e194dfaa87c907777fef341a0d5812e9b75e346df44a438",
+		"launchpad/contracts/ILaunchpadMaster.sol": {
+			"keccak256": "0x3a890dc151df49e903831be104d05e310a19263199554ea63337ea9ff9aca1e6",
 			"urls": [
-				"bzz-raw://d89e027490558f9998c40e3387e9788ac2a9eb914f452a1f6e3378f056bc3a9f",
-				"dweb:/ipfs/QmeGGVHXnQsMKC3U4Pi5C6eSv1oLAXnKKTXDRgSGJMYsag"
+				"bzz-raw://3eb186c4b90932ac4704ab62cd43b2ce115108f35868180f82b47f38c0c5d59a",
+				"dweb:/ipfs/QmTnuX4SYL2BygAYJoKHNoKn2yvkH49pWFkinPn2yp8NN8"
 			]
 		},
-		"freelance/launchpad/contracts/IUniswapV2Factory.sol": {
+		"launchpad/contracts/IUniswapV2Factory.sol": {
 			"keccak256": "0x7e199a801fd5a8edd07d39beabe4e759e3029fb4930a1934ed360f0485f766d7",
 			"license": "MIT",
 			"urls": [
@@ -833,7 +859,7 @@
 				"dweb:/ipfs/QmeZoqqYGi2d6EpNx6bqnPdqcU5KBX2wqHU5WskMEKkdW2"
 			]
 		},
-		"freelance/launchpad/contracts/IUniswapV2Router.sol": {
+		"launchpad/contracts/IUniswapV2Router.sol": {
 			"keccak256": "0x85e739829b533618da1f6467f3459717496c5c982f92d2a0c7df8bb7248f0ab5",
 			"license": "MIT",
 			"urls": [
@@ -841,11 +867,11 @@
 				"dweb:/ipfs/QmWhcifYKLKnSvk2MyGQPjx77vXrjuQdWrC2L2d9SwPar9"
 			]
 		},
-		"freelance/launchpad/contracts/launchpadChild.sol": {
-			"keccak256": "0xcd65b78e26b9b55252c1515db2550fa2d59d49073f5d32619ce7f9862b686c7e",
+		"launchpad/contracts/launchpadChild.sol": {
+			"keccak256": "0x1b9d32369f67fe2151c5885ffea0243a7341ffbe6d01be37c4ed952493621de3",
 			"urls": [
-				"bzz-raw://87d0ef6f65c745f4b25e6eb1fb2abd3141b725e142864a8a6902ecd48aa2dc8d",
-				"dweb:/ipfs/QmXvPcMF5xgUvyLbcPjgi3zuUCopNq7gLvL4PNGEK7CEsS"
+				"bzz-raw://12010879961ca10a221c94b20e0073f2f44929ad173a33a2889237ec803be918",
+				"dweb:/ipfs/QmWNNyUMvVY5tGjZWs5kbAQaiBZ15qYbdbuZimRqMCSmkv"
 			]
 		}
 	},
