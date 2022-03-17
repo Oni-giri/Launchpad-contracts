@@ -31,7 +31,7 @@ Questions you may have:
     - If dev had a stroke seeing his hardcap of 10,000 BNBs being reached, his hungry village has 24h to find his ledger password and end the sale. After this, users can `claimStaleEth()`. Ofc, we can change 24h to another param.
 
 ## Maths - how do we compute parameters?
-# Inputs (saleInputs array):
+### Inputs (saleInputs array):
 - tokenTotalAmount : total amount of tokens sold
 - listingTokensPerOneEth: How many tokens per eth should added to liquidity, when we add it?
 - liquidityShareBP: If we raise 100 ETH, how many should go to liquidity, in basis points (divide by 10,000).
@@ -39,7 +39,7 @@ Questions you may have:
 - startTime : when does the public sale starts
 - endTime : when does the sale ends
 
-# Computed variables:
+### Computed variables:
 - softcap: harcap / 2 (see telegram discussions about this)
 - saleTokensPerOneEth : how many tokens do a user get for 1 Eth bought
     - saleTokensPerOneEth = ((tokenTotalAmount * (10_000 - liquidityShareBP)) / 10_000) / hardcap
