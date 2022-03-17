@@ -14,7 +14,7 @@ If we need to make an update of LaunchpadMaster, we can pause it (no one can lau
 The workflow for the user is the following:
 
 1. Interact with `LaunchpadMaster.createPresale()` to start a presale. This will deploy a `LaunchpadChild()` contract and return its address. The LaunchpadChild address can be recovered with its `saleId`, in `saleIdToAddress` (and vice-versa).
-- - Side note: the presale owner should submit at this point the list of whiteslisted addresses. Those addresses will be stored off-chain and a signature will be generated for it. See signer_code folder for the signature-generation code (doesn't work yet).
+    - Side note: the presale owner should submit at this point the list of whiteslisted addresses. Those addresses will be stored off-chain and a signature will be generated for it. See signer_code folder for the signature-generation code (doesn't work yet).
 2. The creator of the presale needs now to send the tokens to the presale address. Of course, excluding the contract from fees is needed.
 3. He can finalize the sale with `LaunchpadChild.finalizeSale()`. This will check enough tokens were sent to the contract.
 4. When the `WLstartTime`, whitelisted apes can start doing their things. If they are whitelisted, we can submit the signature tied to their address to `LaunchpadChild.buyTokensWhitelist()`, along with some juicy BNBs.
@@ -24,11 +24,11 @@ The workflow for the user is the following:
 
 Questions you may have:
 - What happens if the sale appears to have a problem, and I don't want people to be able to buy?
-- - You can call `abortSale()`, this will stop everything. **Only works if you didn't end the sale (see 6.)**. Then users can `claimStaleEth()` to get the money back, and insult the dev in the chat.
+    - You can call `abortSale()`, this will stop everything. **Only works if you didn't end the sale (see 6.)**. Then users can `claimStaleEth()` to get the money back, and insult the dev in the chat.
 - What happens if the sale didn't reach softcap?
 - - If the sale didn't reach softcap and we have passed the saleEnd time, you can call `claimStaleEth()`.
 - What happens if the sale reached softcap and dev didn't end it?
-- - If dev had a stroke seeing his hardcap of 10,000 BNBs being reached, his hungry village has 24h to find his ledger password and end the sale. After this, users can `claimStaleEth()`. Ofc, we can change 24h to another param.
+    - If dev had a stroke seeing his hardcap of 10,000 BNBs being reached, his hungry village has 24h to find his ledger password and end the sale. After this, users can `claimStaleEth()`. Ofc, we can change 24h to another param.
 
 ## Maths - how do we compute parameters?
 # Inputs (saleInputs array):
@@ -42,9 +42,9 @@ Questions you may have:
 # Computed variables:
 - softcap: harcap / 2 (see telegram discussions about this)
 - saleTokensPerOneEth : how many tokens do a user get for 1 Eth bought
-- - saleTokensPerOneEth = ((tokenTotalAmount * (10_000 - liquidityShareBP)) / 10_000) / hardcap
+    - saleTokensPerOneEth = ((tokenTotalAmount * (10_000 - liquidityShareBP)) / 10_000) / hardcap
 - tokenAmountForLiquidity : How many tokens are actually for liquidity if we reach HC
-- - tokenAmountForLiquidity = (tokenTotalAmount * liquidityShareBP) / 10_000;
+    - tokenAmountForLiquidity = (tokenTotalAmount * liquidityShareBP) / 10_000;
 
 ## Roadmap (dev, do something!)
 
