@@ -46,18 +46,33 @@ Questions you may have:
 - tokenAmountForLiquidity : How many tokens are actually for liquidity if we reach HC
     - tokenAmountForLiquidity = (tokenTotalAmount * liquidityShareBP) / 10_000;
 
+## How to deploy?
+We use [eth-brownie](https://eth-brownie.readthedocs.io/en/stable/install.html), python's marvelous framework for EVM chains.
+
+You may need to [add](https://eth-brownie.readthedocs.io/en/stable/account-management.html?highlight=accounts%20new#importing-from-a-private-key) your wallet first. Also, you should download the OpenZeppelin [package](https://eth-brownie.readthedocs.io/en/stable/package-manager.html#examples):
+```bash
+brownie pm install OpenZeppelin/openzeppelin-contracts@4.3.2
+```
+and link it in your [config](https://eth-brownie.readthedocs.io/en/stable/config.html) file:
+```yaml
+remappings:
+    - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.3.2"
+````
+
+- Test: `brownie test --network bsc-main-fork -i`
+- Deploy: `brownie run scripts/deploy.py -i --network [your_network_here]`
+
+
 ## Roadmap (dev, do something!)
 
 Tests seem to pass, so we should have a working version ready for the website integration.
 What I need to do now:
 
-- Write basic documentation in the git readme, explaining how to deploy, how it works and so on...
+[x] Write basic documentation in the git readme, explaining how to deploy, how it works and so on...
 
-- Add helpers for computation of inputs (hardcap, token price, share to add to liquidity, etc...) - it's done in the contract already, but maybe you'll want them? Or I can just add it to the docs
+[x] Test the whitelist/write the JS code to generate the signatures and test against it
 
-- Test the whitelist/write the JS code to generate the signatures and test against it
-
-- Clean a bit the code
+[x] Clean a bit the code
 
 - Add the liquidity unlock (should be quite easy) and tests
 

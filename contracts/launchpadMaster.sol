@@ -58,7 +58,7 @@ contract LaunchpadMaster is Ownable, ReentrancyGuard, Pausable {
     // Miscellaneous
     bool _whitelistEnabled,
     uint256 _wlStartTime,
-    uint256 _liquidityLockDuration,
+    uint256 _liquidityUnlockTimestamp,
     address _router
   ) external payable whenNotPaused nonReentrant returns (address saleAddress) {
     // Basic checks
@@ -79,7 +79,7 @@ contract LaunchpadMaster is Ownable, ReentrancyGuard, Pausable {
       _saleInputs,
       _whitelistEnabled,
       _wlStartTime,
-      _liquidityLockDuration,
+      _liquidityUnlockTimestamp,
       _router,
       msg.sender
     );

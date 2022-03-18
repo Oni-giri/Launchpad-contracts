@@ -79,32 +79,7 @@ def child(deployer, master, signer, simpleERC20, now):
          ],
         False,  # _whitelistEnabled
         0,  # _wlStartTime
-        0,  # _liquidityLockDuration
-        "0x10ED43C718714eb63d5aA57B78B54704E256024E",  # _router
-        {"from": deployer, "value": 1e17}
-    )
-
-    return LaunchpadChild.at(childTx.return_value)
-
-
-@pytest.fixture(scope="function")
-def childFeeToken(deployer, master, signer, feeERC20, now):
-    childTx = LaunchpadMaster.createPresale(
-        feeERC20,
-        "presale",
-        "presale.png",
-        [900_000e18,  # _tokenTotalAmount
-         10_000_000,  # _listingTokensPerOneEth
-         3000,  # _liquidityShare
-         1e17,  # _hardcap
-         now+5,  # _startTime
-         now+15,  # _endTime
-         6e16,  # _maxBuyPerUser
-         1e14  # _minBuyPerUser
-         ],
-        False,  # _whitelistEnabled
-        0,  # _wlStartTime
-        0,  # _liquidityLockDuration
+        now + 2000,  # _liquidityUnlockTimestamp
         "0x10ED43C718714eb63d5aA57B78B54704E256024E",  # _router
         {"from": deployer, "value": 1e17}
     )
@@ -129,7 +104,7 @@ def childWhitelist(deployer, master, signer, simpleERC20, now):
          ],
         True,  # _whitelistEnabled
         now,  # _wlStartTime
-        0,  # _liquidityLockDuration
+        now + 2000,  # _liquidityLockDuration
         "0x10ED43C718714eb63d5aA57B78B54704E256024E",  # _router
         {"from": deployer, "value": 1e17}
     )
@@ -299,8 +274,9 @@ def test_endSaleAllowClaim(master, child, simpleERC20, deployer, feesWallet, ali
     assert feesBal < feesWallet.balance()
     router = interface.IUniswapV2Router02(child.router())
     factory = interface.IUniswapV2Factory(router.factory())
-    pair = interface.IUniswapV2Pair(factory.getPair(simpleERC20, router.WETH()))
-    assert pair.totalSupply() > 1;
+    pair = interface.IUniswapV2Pair(
+        factory.getPair(simpleERC20, router.WETH()))
+    assert pair.totalSupply() > 1
 
 
 def test_claimStaleEth1(master, child, simpleERC20, deployer, alice, bob, now):
@@ -370,3 +346,32 @@ def test_claimTokensClassic(master, child, simpleERC20, deployer, alice, bob, no
     child.claimTokens({"from": bob})
     assert simpleERC20.balanceOf(
         bob) - before == 6e16 * child.saleTokensPerOneEth()
+
+
+def test_liquidity_unlock(master, child, simpleERC20, deployer, alice, bob, now):
+    # Prep the sale
+    simpleERC20.transfer(child, 1_000_000e18, {"from": deployer})
+    child.finalizeSale({"from": deployer})
+    mine_at(now+6)
+    child.buyTokensPublic({"from": bob, "value": 6e16})
+
+    with brownie.reverts("initiator hasn't ended the sale yet"):
+        child.claimTokens({"from": bob})
+
+    child.endSaleAllowClaim({"from": deployer})
+    router = interface.IUniswapV2Router02(
+        "0x10ED43C718714eb63d5aA57B78B54704E256024E")
+    factory = interface.IUniswapV2Factory(router.factory())
+    lp = interface.IERC20(factory.getPair(simpleERC20, router.WETH()))
+
+    with brownie.reverts("caller is not the initiator"):
+        child.unlockLiquidity({"from": bob})
+
+    with brownie.reverts("too soon"):
+        child.unlockLiquidity({"from": deployer})
+
+    mine_at(now+3000)
+    assert lp.balanceOf(deployer) == 0
+    child.unlockLiquidity({"from": deployer})
+    assert lp.balanceOf(deployer) > 0
+    assert lp.balanceOf(child) == 0

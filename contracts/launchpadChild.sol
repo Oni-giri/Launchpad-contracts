@@ -1,3 +1,4 @@
+// "SPDX-License-Identifier: MIT"
 pragma solidity =0.8.7;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
@@ -24,7 +25,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
 
   // Utils variables
   uint256 public saleTokensPerOneEth; // How much tokens do I get for 1 ETH bought
-  uint256 public liquidityLockDuration; // How long will the liquidity be locked after the sale ends
+  uint256 public liquidityUnlockTimestamp; // How long will the liquidity be locked after the sale ends
   uint256 public userVestDuration; // How long will the user need to vest after the sale ends
   uint256 public teamVestDuration; // How long will the team need to vest after the sale ends
 
@@ -44,7 +45,6 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
   // TODO: Remove comment
   // IMasterLaunchpad public master;                 // Who is the creator of the contract?
   IUniswapV2Router02 public router; // UniswapV2-like router used to add liquidity
-  IUniswapV2Factory public factory; // UniswapV2-like factory to create the LP
 
   // Medatadata
   IERC20 public token; // Instance of the token sold on presale
@@ -84,7 +84,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     // Miscellaneous
     bool _whitelistEnabled,
     uint256 _wlStartTime,
-    uint256 _liquidityLockDuration,
+    uint256 _liquidityUnlockTimestamp,
     address _router,
     address _saleInitiator
   ) {
@@ -102,6 +102,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     endTime = _saleInputs[5];
     maxBuyPerUser = _saleInputs[6];
     minBuyPerUser = _saleInputs[7];
+
     require(minBuyPerUser < hardcap, "min buy per user is higher than hardcap");
 
     master = ILaunchpadMaster(msg.sender);
@@ -114,7 +115,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     softcap = hardcap / 2;
     tokenAmountForLiquidity = (tokenTotalAmount * liquidityShareBP) / 10_000;
     tokenAmountForSale = tokenTotalAmount - tokenAmountForLiquidity;
-    // TODO: Fix the math
+
     // basically, Is the amount of ETH reserved for liquidity given the listing price inferior to the amount of ETH raised?
     require(
       tokenAmountForLiquidity / listingTokensPerOneEth <
@@ -122,11 +123,8 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
       "not enough ETH for liquidity, increase listing price or decrease liquidity share"
     );
 
-    liquidityLockDuration = _liquidityLockDuration;
-    // userVestDuration = userVestDuration;
-    // teamVestDuration = userVestDuration;
-    // userVestEnabled = userVestDuration == 0 ? false : true;
-    // teamVestEnabled = teamVestDuration == 0 ? false : true;
+    require(_liquidityUnlockTimestamp > endTime, "you need to set a liquidity unlock starting after the sale");
+    liquidityUnlockTimestamp = _liquidityUnlockTimestamp;
 
     whitelistEnabled = _whitelistEnabled;
     wlStartTime = _wlStartTime;
@@ -142,18 +140,22 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     saleInitiator = payable(_saleInitiator);
 
     router = IUniswapV2Router02(_router);
-
-    // TODO: Need to add the user vesting wallet when developped
   }
 
-  // TODO: add pauser
-  // TODO: add setters
-
+  // Check if the msg.sender is the user who launched the sale
   modifier onlyInitiator() {
     require(saleInitiator == msg.sender, "caller is not the initiator");
     _;
   }
 
+  // Check if the msg.sender is a contract or not
+  modifier notContract() {
+    require(!_isContract(msg.sender), "contract not allowed");
+    require(msg.sender == tx.origin, "proxy contract not allowed");
+    _;
+  }
+
+  // Get the amount of tokens sold so far
   function totalBuyTokens() public view returns (uint256) {
     return (totalBuyEth * saleTokensPerOneEth);
   }
@@ -178,7 +180,14 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     saleFinalized = true;
   }
 
-  function buyTokensPublic() external payable nonReentrant whenNotPaused {
+  // Use this function for the general public sale
+  function buyTokensPublic()
+    external
+    payable
+    nonReentrant
+    whenNotPaused
+    notContract
+  {
     require(!saleAborted, "sale was aborted");
     require(saleFinalized, "sale hasn't been finalized yet");
     require(block.timestamp > startTime, "sale hasn't started yet");
@@ -201,6 +210,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     totalBuyEth = totalBuyEth + msg.value;
   }
 
+  // Use this function to buy tokens while in whitelist
   function buyTokensWhitelist(bytes memory signature)
     external
     payable
@@ -230,6 +240,84 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     totalBuyEth = totalBuyEth + msg.value;
   }
 
+  // Use this function to close the sale and allow users to claim their tokens
+  // This will prevent from buying more, add liquidity to the pool,
+  // and send the remaining presale funds to the initiator of the sale
+  function endSaleAllowClaim() external onlyInitiator nonReentrant {
+    require(!saleAborted, "sale was aborted");
+    require(saleFinalized, "sale wasn't finalized");
+    require(totalBuyEth > softcap, "not enough tokens were sold");
+    require(!saleEnded, "sale was already ended");
+
+    saleEnded = true;
+
+    // We add liquidity on the fly
+    uint256 ethAmountForLiquidity = totalBuyTokens() / listingTokensPerOneEth;
+    uint256 actualTokenAmountForLiquidity = (tokenAmountForLiquidity *
+      totalBuyEth) / hardcap;
+
+    token.approve(address(router), actualTokenAmountForLiquidity);
+    router.addLiquidityETH{value: ethAmountForLiquidity}(
+      address(token),
+      actualTokenAmountForLiquidity,
+      0,
+      0,
+      address(this),
+      block.timestamp + 1000
+    );
+    master.feesWallet().call{value: ((totalBuyEth * feeBP) / 10_000)}("");
+    saleInitiator.call{value: address(this).balance}("");
+  }
+
+  function claimTokens() external nonReentrant {
+    require(
+      !saleAborted,
+      "sale was aborted, please use claimStaleEth() function"
+    );
+    require(userBuyAmount[msg.sender] > 0, "user hasn't any tokens to claim");
+    require(saleEnded, "initiator hasn't ended the sale yet");
+
+    uint256 amountToClaim = userBuyAmount[msg.sender] * saleTokensPerOneEth;
+    userBuyAmount[msg.sender] = 0;
+    emit Debug(amountToClaim);
+    token.transfer(msg.sender, amountToClaim);
+  }
+
+  // This function allows users to claim the eth provided to a sale if the owner didn't ended it after 24h.
+  function claimStaleEth() external nonReentrant {
+    require(!saleEnded, "sale has been ended : you can claim");
+
+    // If the sale was aborted, you can claim back your eth
+    if (saleAborted) {
+      _claimStaleEth();
+    }
+
+    // If we didn't reach sofcap after the end of the sale, you can claim back
+    if (totalBuyEth < softcap && block.timestamp > endTime) {
+      _claimStaleEth();
+    }
+
+    // If the owner didn't close a successfull sale after 24h, you can claim back
+    if (totalBuyEth > softcap && block.timestamp > endTime + 86400) {
+      _claimStaleEth();
+    }
+  }
+
+  // internal function to claim eth from failed sales
+  function _claimStaleEth() private {
+    require(userBuyAmount[msg.sender] > 0, "user hasn't any tokens to claim");
+    uint256 amountToClaim = userBuyAmount[msg.sender];
+    userBuyAmount[msg.sender] = 0;
+    msg.sender.call{value: amountToClaim}("");
+  }
+
+  function unlockLiquidity() external onlyInitiator {
+    require(block.timestamp > liquidityUnlockTimestamp, "too soon");
+    IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
+    IERC20 lpToken = IERC20(factory.getPair(address(token), router.WETH()));
+    lpToken.transfer(saleInitiator, lpToken.balanceOf(address(this)));
+  }
+
   function verify(
     bytes memory signature,
     address _target,
@@ -242,12 +330,12 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
 
     (v, r, s) = splitSignature(signature);
 
-    bytes32 payloadHash = keccak256(
-      abi.encode(_target, _saleId, _chainId)
-    );
+    bytes32 payloadHash = keccak256(abi.encode(_target, _saleId, _chainId));
 
-    bytes32 messageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", payloadHash));
-    return(signer == ecrecover(messageHash, v, r, s));
+    bytes32 messageHash = keccak256(
+      abi.encodePacked("\x19Ethereum Signed Message:\n32", payloadHash)
+    );
+    return (signer == ecrecover(messageHash, v, r, s));
   }
 
   function splitSignature(bytes memory sig)
@@ -277,74 +365,23 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     return (v, r, s);
   }
 
-  function claimTokens() external nonReentrant {
-    require(
-      !saleAborted,
-      "sale was aborted, please use claimStaleEth() function"
-    );
-    require(userBuyAmount[msg.sender] > 0, "user hasn't any tokens to claim");
-    require(saleEnded, "initiator hasn't ended the sale yet");
-
-    uint256 amountToClaim = userBuyAmount[msg.sender] * saleTokensPerOneEth;
-    userBuyAmount[msg.sender] = 0;
-    emit Debug(amountToClaim);
-    token.transfer(msg.sender, amountToClaim);
+  // Pause the contract, preventing to buy more tokens
+  function pause() external onlyInitiator whenNotPaused {
+    _pause();
   }
 
-  // This function allows users to claim the eth provided to a sale if the owner didn't ended it after 24h.
-  function claimStaleEth() external nonReentrant {
-    require(!saleEnded, "sale has been ended : you can claim");
+  // Unpause it
+  function unpause() external onlyInitiator whenPaused {
+    _unpause();
+  }
 
-    // If the sale was aborted, you can claim back you eth
-    if (saleAborted) {
-      _claimStaleEth();
+  // Util to check if the sender is an already deployed contract
+  function _isContract(address addr) internal view returns (bool) {
+    uint256 size;
+    assembly {
+      size := extcodesize(addr)
     }
-
-    // If we didn't reach sofcap after the end of the sale, you can claim back
-    if (totalBuyEth < softcap && block.timestamp > endTime) {
-      _claimStaleEth();
-    }
-
-    // If the owner didn't close a successfull sale after 24h, you can claim back
-    if (totalBuyEth > softcap && block.timestamp > endTime + 86400) {
-      _claimStaleEth();
-    }
+    return size > 0;
   }
 
-  function _claimStaleEth() private {
-    require(userBuyAmount[msg.sender] > 0, "user hasn't any tokens to claim");
-    uint256 amountToClaim = userBuyAmount[msg.sender];
-    userBuyAmount[msg.sender] = 0;
-    msg.sender.call{value: amountToClaim}("");
-  }
-
-  // Use this function to close the sale and allow users to claim their tokens
-  // This will prevent from buying more, add liquidity to the pool,
-  // and send the remaining presale funds to the initiator of the sale
-  function endSaleAllowClaim() external onlyInitiator nonReentrant {
-    require(!saleAborted, "sale was aborted");
-    require(saleFinalized, "sale wasn't finalized");
-    require(totalBuyEth > softcap, "not enough tokens were sold");
-    require(!saleEnded, "sale was already ended");
-
-    saleEnded = true;
-
-    // We add liquidity on the fly
-    uint256 ethAmountForLiquidity = totalBuyTokens() / listingTokensPerOneEth;
-    // TODO: Need to test this for overflow risk
-    uint256 actualTokenAmountForLiquidity = (tokenAmountForLiquidity *
-      totalBuyEth) / hardcap;
-
-    token.approve(address(router), actualTokenAmountForLiquidity);
-    router.addLiquidityETH{value: ethAmountForLiquidity}(
-      address(token),
-      actualTokenAmountForLiquidity,
-      0,
-      0,
-      address(this),
-      block.timestamp + 1000
-    );
-    master.feesWallet().call{value: ((totalBuyEth * feeBP) / 10_000)}("");
-    saleInitiator.call{value: address(this).balance}("");
-  }
 }
