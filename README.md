@@ -15,7 +15,8 @@ The workflow for the user is the following:
 
 1. Interact with `LaunchpadMaster.createPresale()` to start a presale. This will deploy a `LaunchpadChild()` contract and return its address. The LaunchpadChild address can be recovered with its `saleId`, in `saleIdToAddress` (and vice-versa).
     - Side note: the presale owner should submit at this point the list of whiteslisted addresses. Those addresses will be stored off-chain and a signature will be generated for it. See signer_code folder for the signature-generation code (doesn't work yet).
-2. The creator of the presale needs now to send the tokens to the presale address. Of course, excluding the contract from fees is needed.
+2. The creator of the presale needs now to send the tokens to the presale address.
+### ⚠ Important - **If the token has transfer fees, the presale creator needs to exclude from fees the presale contract (child) address**
 3. He can finalize the sale with `LaunchpadChild.finalizeSale()`. This will check enough tokens were sent to the contract.
 4. When the `WLstartTime`, whitelisted apes can start doing their things. If they are whitelisted, we can submit the signature tied to their address to `LaunchpadChild.buyTokensWhitelist()`, along with some juicy BNBs.
 5. When the `startTime` comes, the war begins and anyone (anybots?) can buy from the presale using `LaunchpadChild.buyTokensPublic()`, along with some BNBs.
@@ -29,6 +30,8 @@ Questions you may have:
 - - If the sale didn't reach softcap and we have passed the saleEnd time, you can call `claimStaleEth()`.
 - What happens if the sale reached softcap and dev didn't end it?
     - If dev had a stroke seeing his hardcap of 10,000 BNBs being reached, his hungry village has 24h to find his ledger password and end the sale. After this, users can `claimStaleEth()`. Ofc, we can change 24h to another param.
+
+
 
 ## Maths - how do we compute parameters?
 ### Inputs (saleInputs array):
@@ -70,7 +73,9 @@ What I need to do now:
 
 [x] Write basic documentation in the git readme, explaining how to deploy, how it works and so on...
 
-[x] Test the whitelist/write the JS code to generate the signatures and test against it
+[x] Write the JS code to generate the signatures
+
+[x] Test the whitelist
 
 [x] Clean a bit the code
 
