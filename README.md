@@ -74,6 +74,6 @@ What I need to do now:
 
 [x] Clean a bit the code
 
-- Add the liquidity unlock (should be quite easy) and tests
+[x] Add the liquidity unlock (should be quite easy) and tests
 
-- Add the capacity to see all sales from an user, while allowing to update contracts
+[?] Add the capacity to see all sales from an user, while allowing to update contracts
