@@ -5,9 +5,9 @@ const provider = new ethers.providers.JsonRpcProvider('http://localhost:8545');
 const wallet = new ethers.Wallet('0x9a68219f2043f84c6f53585a25ada91cbd5f24727912942a3a05a7981185a44c');
 console.log('Wallet:', wallet.address);
 
-const target = '0xEB3FCc95E09baD8e53C8886AFBCEc8e6Aff9f626';
+const target = '0x33A4622B82D4c04a53e170c638B944ce27cffce3';
 const saleId = 0;
-const chainId = 57;
+const chainId = 56;
 
 let payload = ethers.utils.defaultAbiCoder.encode(['address', 'uint256', 'uint256'], [target, saleId, chainId]);
 console.log('Payload:', payload);
