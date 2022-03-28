@@ -1,4 +1,5 @@
-pragma solidity =0.8.13;
+// SPDX-License-Identifier: WTFPL
+pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";

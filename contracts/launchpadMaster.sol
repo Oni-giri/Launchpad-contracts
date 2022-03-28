@@ -1,5 +1,5 @@
-// "SPDX-License-Identifier: MIT"
-pragma solidity =0.8.7;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -19,12 +19,20 @@ contract LaunchpadMaster is Ownable, ReentrancyGuard, Pausable {
   mapping(uint256 => address) public saleIdToAddress;
   mapping(address => uint256) public addressToSaleId;
   mapping(uint256 => address) public saleToSigner;
+  mapping(uint256 => Sale) public saleIdToSale;
   uint256 public currentSaleId;
   uint256 public feesBP; // Fees in basis points (100 = 1%)
   uint256 public startSaleId; // Start of the sale count
   uint256 public deployFee; // Amount to pay to deploy a sale
   address public signer; // who signs for presales
   address payable public feesWallet; // Who gets the fees
+
+  struct Sale {
+    string name;
+    uint256 saleId;
+    address addr;
+  }  
+
 
   constructor(
     uint256 _feesBP,
@@ -42,6 +50,7 @@ contract LaunchpadMaster is Ownable, ReentrancyGuard, Pausable {
 
   function createPresale(
     address _token,
+    string memory _name,
     string memory _description,
     string memory _imageUrl,
     // Sale inputs
@@ -74,6 +83,7 @@ contract LaunchpadMaster is Ownable, ReentrancyGuard, Pausable {
     // Deploy the contract
     LaunchpadChild deployedSale = new LaunchpadChild(
       _token,
+      _name,
       _description,
       _imageUrl,
       _saleInputs,
@@ -86,13 +96,32 @@ contract LaunchpadMaster is Ownable, ReentrancyGuard, Pausable {
 
     // Update the registry
     saleAddress = address(deployedSale);
+
+    Sale memory sale = Sale(
+      _name,
+      currentSaleId,
+      saleAddress
+    );
+
     saleIdToAddress[currentSaleId] = saleAddress;
     addressToSaleId[saleAddress] = currentSaleId;
+    saleIdToSale[currentSaleId] = sale;
 
     currentSaleId = currentSaleId + 1;
 
     return (saleAddress);
   }
+
+  // return a list of Sales
+  function getSales() external view returns(Sale[] memory) {
+    Sale[] memory sales = new Sale[](currentSaleId - startSaleId);
+    for (uint i = startSaleId; i < currentSaleId; i++) {
+      Sale memory sale = saleIdToSale[i];
+      sales[i - startSaleId] = sale;
+    }
+    return (sales);
+  }
+
 
   function claimFees() external nonReentrant {
     require(msg.sender == feesWallet, "not authorized");

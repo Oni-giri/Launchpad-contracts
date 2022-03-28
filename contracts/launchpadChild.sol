@@ -1,5 +1,6 @@
-// "SPDX-License-Identifier: MIT"
-pragma solidity =0.8.7;
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -49,14 +50,15 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
   // Medatadata
   IERC20 public token; // Instance of the token sold on presale
   uint256 public saleId; // saleId, to identify the sale
+  string public name; // Name of the presale
   string public description; // What to show on the front end
   string public imageUrl; // Image url for the front end
 
-  address payable public recipient; // Who gets the fees?
-  address payable public saleInitiator; // Who has started the sale?
-  uint256 public totalBuyEth; // How many tokens were bought so far?
+  address payable public recipient; // fee benificiary
+  address payable public saleInitiator;
+  uint256 public totalBuyEth; // Total amount of ETH bought
 
-  bool public saleFinalized; // Is sale ready for the launch?
+  bool public saleStarted; // Is sale ready for the launch?
   bool public saleEnded; // Is the sale ended and tokens are ready to be claimed?
   bool public saleAborted; // Allows the dev to abort the sale and the users to get their eth back
 
@@ -65,9 +67,95 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
 
   event Debug(uint256 amount);
 
+  // enum => all the public variables 
+  // the variables have to be arrays of their type
+  struct SLaunchpadExport {
+  // Inputs
+  uint256  tokenTotalAmount;
+  uint256  listingTokensPerOneEth;
+  uint256  liquidityShareBP; 
+  uint256  hardcap; 
+  uint256  softcap; 
+  uint256  feeBP;
+  uint256  startTime; 
+  uint256  endTime; 
+  uint256  wlStartTime; 
+
+  // Utils variables
+  uint256  saleTokensPerOneEth;
+  uint256  liquidityUnlockTimestamp; 
+  uint256  userVestDuration; 
+  uint256  teamVestDuration; 
+
+  uint256  maxBuyPerUser;
+  uint256  minBuyPerUser; 
+  uint256  tokenAmountForSale; 
+  uint256  tokenAmountForLiquidity;
+
+  bool  userVestEnabled;
+  bool  teamVestEnabled;
+  bool  whitelistEnabled; 
+  address  signer;
+  address  router; 
+
+  // Medatadata
+  address  token; 
+  uint256  saleId;
+  string  name;
+  string  description;
+  string  imageUrl;
+
+  address   recipient; 
+  address   saleInitiator;
+  uint256  totalBuyEth; 
+
+  bool  saleStarted; 
+  bool  saleEnded; 
+  bool  saleAborted;
+  }
+
+  function LaunchpadExport() external view returns (SLaunchpadExport memory export) {
+    return SLaunchpadExport(
+      tokenTotalAmount,
+      listingTokensPerOneEth,
+      liquidityShareBP,
+      hardcap,
+      softcap,
+      feeBP,
+      startTime,
+      endTime,
+      wlStartTime,
+      saleTokensPerOneEth,
+      liquidityUnlockTimestamp,
+      userVestDuration,
+      teamVestDuration,
+      maxBuyPerUser,
+      minBuyPerUser,
+      tokenAmountForSale,
+      tokenAmountForLiquidity,
+      userVestEnabled,
+      teamVestEnabled,
+      whitelistEnabled,
+      signer,
+      address(router),
+      address(token),
+      saleId,
+      name,
+      description,
+      imageUrl,
+      recipient,
+      saleInitiator,
+      totalBuyEth,
+      saleStarted,
+      saleEnded,
+      saleAborted
+    );
+  }
+
   constructor(
     // Metadata
     address _token,
+    string memory _name,
     string memory _description,
     string memory _imageUrl,
     // uint _saleId, // use master interface
@@ -90,6 +178,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
   ) {
     // Metadata
     token = IERC20(_token);
+    name = _name;
     description = _description;
     imageUrl = _imageUrl;
 
@@ -123,6 +212,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
       "not enough ETH for liquidity, increase listing price or decrease liquidity share"
     );
 
+    
     require(_liquidityUnlockTimestamp > endTime, "you need to set a liquidity unlock starting after the sale");
     liquidityUnlockTimestamp = _liquidityUnlockTimestamp;
 
@@ -150,6 +240,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
 
   // Check if the msg.sender is a contract or not
   modifier notContract() {
+    // TODO: change implementation before update solidity PoS
     require(!_isContract(msg.sender), "contract not allowed");
     require(msg.sender == tx.origin, "proxy contract not allowed");
     _;
@@ -177,7 +268,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
       token.balanceOf(address(this)) >= tokenTotalAmount,
       "insufficient amount of tokens sent to the address"
     );
-    saleFinalized = true;
+    saleStarted = true;
   }
 
   // Use this function for the general public sale
@@ -189,7 +280,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     notContract
   {
     require(!saleAborted, "sale was aborted");
-    require(saleFinalized, "sale hasn't been finalized yet");
+    require(saleStarted, "sale hasn't been finalized yet");
     require(block.timestamp > startTime, "sale hasn't started yet");
     require(block.timestamp < endTime, "sale has ended");
     require(
@@ -219,7 +310,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
   {
     require(verify(signature, msg.sender, saleId, block.chainid));
     require(!saleAborted, "sale was aborted");
-    require(saleFinalized, "sale hasn't been finalized yet");
+    require(saleStarted, "sale hasn't been finalized yet");
     require(block.timestamp < endTime, "sale has ended");
     require(block.timestamp > wlStartTime, "sale hasn't started yet");
     require(
@@ -245,7 +336,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
   // and send the remaining presale funds to the initiator of the sale
   function endSaleAllowClaim() external onlyInitiator nonReentrant {
     require(!saleAborted, "sale was aborted");
-    require(saleFinalized, "sale wasn't finalized");
+    require(saleStarted, "sale wasn't finalized");
     require(totalBuyEth > softcap, "not enough tokens were sold");
     require(!saleEnded, "sale was already ended");
 
@@ -383,5 +474,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     }
     return size > 0;
   }
+
+
 
 }

@@ -1,0 +1,23 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // run nodemon backend/index.js debug
+            "type": "node",
+            "request": "launch",
+            "name": "Backend",
+            "program": "${workspaceRoot}/backend/index.js",
+            "args": [
+                "debug"
+            ],
+            "stopOnEntry": true,
+            "cwd": "${workspaceRoot}",
+            "env": {
+                "NODE_ENV": "development"
+            },
+        }
+    ]
+}

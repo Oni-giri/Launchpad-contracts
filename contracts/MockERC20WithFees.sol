@@ -1,4 +1,5 @@
-pragma solidity =0.8.7;
+// SPDX-License-Identifier: WTFPL
+pragma solidity ^0.8.7;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockERC20WithFees is ERC20 {

@@ -135,6 +135,11 @@
 					},
 					{
 						"internalType": "string",
+						"name": "_name",
+						"type": "string"
+					},
+					{
+						"internalType": "string",
 						"name": "_description",
 						"type": "string"
 					},
@@ -160,7 +165,7 @@
 					},
 					{
 						"internalType": "uint256",
-						"name": "_liquidityLockDuration",
+						"name": "_liquidityUnlockTimestamp",
 						"type": "uint256"
 					},
 					{
@@ -234,12 +239,29 @@
 			},
 			{
 				"inputs": [],
-				"name": "inDeploy",
+				"name": "getSales",
 				"outputs": [
 					{
-						"internalType": "bool",
+						"components": [
+							{
+								"internalType": "string",
+								"name": "name",
+								"type": "string"
+							},
+							{
+								"internalType": "uint256",
+								"name": "saleId",
+								"type": "uint256"
+							},
+							{
+								"internalType": "address",
+								"name": "addr",
+								"type": "address"
+							}
+						],
+						"internalType": "struct LaunchpadMaster.Sale[]",
 						"name": "",
-						"type": "bool"
+						"type": "tuple[]"
 					}
 				],
 				"stateMutability": "view",
@@ -305,6 +327,35 @@
 						"type": "uint256"
 					}
 				],
+				"name": "saleIdToSale",
+				"outputs": [
+					{
+						"internalType": "string",
+						"name": "name",
+						"type": "string"
+					},
+					{
+						"internalType": "uint256",
+						"name": "saleId",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "addr",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
 				"name": "saleToSigner",
 				"outputs": [
 					{
@@ -314,6 +365,45 @@
 					}
 				],
 				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_deployFee",
+						"type": "uint256"
+					}
+				],
+				"name": "setDeployFee",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_feesBP",
+						"type": "uint256"
+					}
+				],
+				"name": "setFeesBP",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_signer",
+						"type": "address"
+					}
+				],
+				"name": "setSigner",
+				"outputs": [],
+				"stateMutability": "nonpayable",
 				"type": "function"
 			},
 			{
@@ -354,6 +444,10 @@
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
+			},
+			{
+				"stateMutability": "payable",
+				"type": "receive"
 			}
 		],
 		"devdoc": {
@@ -382,7 +476,7 @@
 	},
 	"settings": {
 		"compilationTarget": {
-			"freelance/launchpad/contracts/launchpadMaster.sol": "LaunchpadMaster"
+			"contracts/launchpadMaster.sol": "LaunchpadMaster"
 		},
 		"evmVersion": "london",
 		"libraries": {},
@@ -390,8 +484,8 @@
 			"bytecodeHash": "ipfs"
 		},
 		"optimizer": {
-			"enabled": false,
-			"runs": 200
+			"enabled": true,
+			"runs": 2000
 		},
 		"remappings": []
 	},
@@ -484,41 +578,44 @@
 				"dweb:/ipfs/QmP7C3CHdY9urF4dEMb9wmsp1wMxHF6nhA2yQE5SKiPAdy"
 			]
 		},
-		"freelance/launchpad/contracts/ILaunchpadMaster.sol": {
-			"keccak256": "0x5df357247e7858b38e194dfaa87c907777fef341a0d5812e9b75e346df44a438",
-			"urls": [
-				"bzz-raw://d89e027490558f9998c40e3387e9788ac2a9eb914f452a1f6e3378f056bc3a9f",
-				"dweb:/ipfs/QmeGGVHXnQsMKC3U4Pi5C6eSv1oLAXnKKTXDRgSGJMYsag"
-			]
-		},
-		"freelance/launchpad/contracts/IUniswapV2Factory.sol": {
-			"keccak256": "0x7e199a801fd5a8edd07d39beabe4e759e3029fb4930a1934ed360f0485f766d7",
+		"contracts/ILaunchpadMaster.sol": {
+			"keccak256": "0x01eed5c13baf0e6b634c4c44cc83e967820fe9c19856c799c4504a18e5881c00",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://3f86f80e0e4cb5efbd5bc71d8530cf67a1a3f0d08441e3d4517407bbe7fc2969",
-				"dweb:/ipfs/QmeZoqqYGi2d6EpNx6bqnPdqcU5KBX2wqHU5WskMEKkdW2"
+				"bzz-raw://203ed80cff8e46771ff2a0fc61e1ded693b330957fdb9cd003fd4d76f58a3899",
+				"dweb:/ipfs/Qmaoet27MozNaCADkUkQjxa9ZeMvNGs3aWsCdyN3evPxXQ"
 			]
 		},
-		"freelance/launchpad/contracts/IUniswapV2Router.sol": {
-			"keccak256": "0x85e739829b533618da1f6467f3459717496c5c982f92d2a0c7df8bb7248f0ab5",
+		"contracts/IUniswapV2Factory.sol": {
+			"keccak256": "0x7868dd4826f8c25dfae2386255167d18c1954cb8457990b2a7927b73c92042f2",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://b63e51c33ef66612e6a724eb8f84e66ace21d49b2600d105603235e13e674c4f",
-				"dweb:/ipfs/QmWhcifYKLKnSvk2MyGQPjx77vXrjuQdWrC2L2d9SwPar9"
+				"bzz-raw://2c8ba4a7383b854d8812a3d5e457414cd17e8b9adddae46eab69af501c00a5c8",
+				"dweb:/ipfs/QmVBgXWrHnN3MqzQdv6NsG2k6ckzXz1ug6TCFusCXLWrbf"
 			]
 		},
-		"freelance/launchpad/contracts/launchpadChild.sol": {
-			"keccak256": "0x22bd238d3ea9f09b45bd819cb85bbb9f28d08b7844179901710010b7e231dd5f",
+		"contracts/IUniswapV2Router.sol": {
+			"keccak256": "0x2cca2661a9c70b266a6e0364995910f33d2429b8f7001ab389a2acbc3d1409fa",
+			"license": "MIT",
 			"urls": [
-				"bzz-raw://fe64d05cbaecf5ae0cbbaec98a15951134362ae431ee9c5f51523fbb5ba4c800",
-				"dweb:/ipfs/QmXA3zSLoiRdmwxNYGAF6SKGVLRyP8pAdEvngNJV4VwCHD"
+				"bzz-raw://f84f5eb2f400a0bc74aa9b2150777722b074da40aae60b4167c261734848e329",
+				"dweb:/ipfs/QmPJmrJAbhH5zyzWFPXEwJroH6tsVrvgHZZnFmiKqGm9ry"
 			]
 		},
-		"freelance/launchpad/contracts/launchpadMaster.sol": {
-			"keccak256": "0x62b8393a5c1f52b7143812fe43947219aa08862a6b26df58ebad8f3f60825e09",
+		"contracts/launchpadChild.sol": {
+			"keccak256": "0x128ef924ffeecbc52e70852a2f169ca385e97b31fbc89f062fe373330af8af16",
+			"license": "MIT",
 			"urls": [
-				"bzz-raw://c1227c177d6a6bf9612fc80cc2126b479a8b58b1bf92e6802ccb578ebb525015",
-				"dweb:/ipfs/QmXo9zsxYV8qneUbhSr8euSMApMDYTJpeCTXTG1C3NjW1R"
+				"bzz-raw://079898c88dc929ae35642b040826674e2012f289df2dc34cf4dece6b613fbff7",
+				"dweb:/ipfs/QmfYdBALg4k1WTrEzH3yWPYz5kzHUZTYR6QUBbtVQA5WJT"
+			]
+		},
+		"contracts/launchpadMaster.sol": {
+			"keccak256": "0xd87454708eab21647af405ceacfe999d236f82a04cb0c742c56b5635a9c9bebb",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://3a70a5f59c732914c7748ca82719917bf407f487192c1d2fa421c28f317305d3",
+				"dweb:/ipfs/QmPBCyfeGvwJwjVzLmEaGK6pzM8x9N3XNX57cWa28pxQ8N"
 			]
 		}
 	},
