@@ -37,6 +37,7 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
 
   bool public userVestEnabled; // Are the tokens vested for the users?
   bool public teamVestEnabled; // Are the tokens vested for the team?
+  mapping(address => bool) public whitelist;// Instance of the token sold on presale
   bool public whitelistEnabled; // Do we have a whitelist?
 
   address public deadAddress = 0x000000000000000000000000000000000000dEaD;
@@ -301,7 +302,17 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     totalBuyEth = totalBuyEth + msg.value;
   }
 
-  // Use this function to buy tokens while in whitelist
+  function setWhitelisted(address[] memory _whitelist, bool isWhitelisted) 
+  public
+  {
+    require(msg.sender == signer, "only the signer can whitelist");
+
+    for (uint i = 0; i < _whitelist.length; i++) {
+      whitelist[_whitelist[i]] = isWhitelisted;
+    }
+  }
+
+
   function buyTokensWhitelist(bytes memory signature)
     external
     payable
@@ -309,23 +320,17 @@ contract LaunchpadChild is ReentrancyGuard, Pausable {
     whenNotPaused
   {
     require(verify(signature, msg.sender, saleId, block.chainid));
+    require(whitelistEnabled, "whitelist is not enabled");
+    require(whitelist[msg.sender], "you're not whitelisted");
+
     require(!saleAborted, "sale was aborted");
     require(saleStarted, "sale hasn't been finalized yet");
     require(block.timestamp < endTime, "sale has ended");
     require(block.timestamp > wlStartTime, "sale hasn't started yet");
-    require(
-      msg.value + userBuyAmount[msg.sender] <= maxBuyPerUser,
-      "you're trying to buy too many tokens"
-    );
+    require(msg.value + userBuyAmount[msg.sender] <= maxBuyPerUser, "you're trying to buy too many tokens" );
     require(msg.value >= minBuyPerUser, "you're not sending enough");
-    require(
-      msg.value * saleTokensPerOneEth + totalBuyTokens() <= tokenAmountForSale,
-      "there aren't enough tokens left. Try a lower amount"
-    );
-    require(
-      totalBuyEth + msg.value <= hardcap,
-      "hardcap is reached. Try a lower amount"
-    );
+    require(msg.value * saleTokensPerOneEth + totalBuyTokens() <= tokenAmountForSale, "there aren't enough tokens left. Try a lower amount");
+    require(totalBuyEth + msg.value <= hardcap, "hardcap is reached. Try a lower amount");
 
     userBuyAmount[msg.sender] = userBuyAmount[msg.sender] + msg.value;
     totalBuyEth = totalBuyEth + msg.value;
